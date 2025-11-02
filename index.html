@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Key Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 500px;
+            max-width: 90%;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 20px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-top: 15px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        input, select, button {
+            padding: 12px;
+            margin-top: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            margin-top: 20px;
+            border: none;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .key-display {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 14px;
+            border-left: 4px solid #667eea;
+        }
+        .license-list {
+            margin-top: 30px;
+        }
+        .license-item {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .license-info {
+            flex-grow: 1;
+        }
+        .delete-btn {
+            background: #e53e3e;
+            padding: 5px 10px;
+            font-size: 12px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            background: #c53030;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="dashboard">
+            <h1>License Key Generator</h1>
+            
+            <form id="generateForm">
+                <label for="macAddress">MAC Address:</label>
+                <input type="text" id="macAddress" placeholder="e.g., aa:bb:cc:dd:ee:ff" required>
+                
+                <label for="expiration">Expiration:</label>
+                <select id="expiration">
+                    <option value="7">1 Week</option>
+                    <option value="30" selected>1 Month</option>
+                    <option value="lifetime">Lifetime</option>
+                </select>
+                
+                <button type="submit">Generate Key</button>
+            </form>
+            
+            <div id="generatedKey"></div>
+            
+            <div class="license-list" id="licenseList">
+                <h2>Generated Keys</h2>
+                <div id="licensesContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Storage for licenses
+        let licenses = JSON.parse(localStorage.getItem('licenses')) || [];
+
+        // Generate random key in xxxx-xxxx-xxxx format (12 uppercase alphanum chars)
+        function generateRandomKey() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let key = '';
+            for (let i = 0; i < 12; i++) {
+                key += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return key.replace(/(.{4})/g, '$1-').slice(0, -1); // Format as xxxx-xxxx-xxxx
+        }
+
+        // Load and display licenses
+        function loadLicenses() {
+            const container = document.getElementById('licensesContainer');
+            container.innerHTML = licenses.map((license, index) => {
+                const expText = license.expiration === 'lifetime' ? 'Lifetime' : new Date(license.expiresAt).toLocaleDateString();
+                const daysLeft = license.expiration === 'lifetime' ? '∞' : Math.max(0, Math.ceil((license.expiresAt - Date.now()) / (24 * 60 * 60 * 1000)));
+                return `
+                    <div class="license-item">
+                        <div class="license-info">
+                            <strong>Key:</strong> ${license.key}<br>
+                            <strong>MAC:</strong> ${license.mac}<br>
+                            <strong>Expires:</strong> ${expText} (${daysLeft} days left)
+                        </div>
+                        <button class="delete-btn" onclick="deleteLicense(${index})">Delete</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Delete license
+        window.deleteLicense = (index) => {
+            if (confirm('Delete this key?')) {
+                licenses.splice(index, 1);
+                localStorage.setItem('licenses', JSON.stringify(licenses));
+                loadLicenses();
+            }
+        };
+
+        // Generate key
+        document.getElementById('generateForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const mac = document.getElementById('macAddress').value.trim().toLowerCase();
+            const expiration = document.getElementById('expiration').value;
+            const key = generateRandomKey();
+            const expiresAt = expiration === 'lifetime' ? null : Date.now() + (parseInt(expiration) * 24 * 60 * 60 * 1000);
+            
+            const license = { key, mac, expiration, expiresAt, created: Date.now() };
+            licenses.push(license);
+            localStorage.setItem('licenses', JSON.stringify(licenses));
+            
+            const expText = expiration === 'lifetime' ? 'Lifetime' : `on ${new Date(expiresAt).toLocaleDateString()}`;
+            document.getElementById('generatedKey').innerHTML = `
+                <div class="key-display">${key}</div>
+                <p><strong>Bound to MAC:</strong> ${mac}</p>
+                <p><strong>Expires:</strong> ${expText}</p>
+                <p><em>Share this key with the user.</em></p>
+            `;
+            
+            document.getElementById('generateForm').reset();
+            loadLicenses();
+        });
+
+        // Initialize
+        loadLicenses();
+    </script>
+</body>
+</html>
